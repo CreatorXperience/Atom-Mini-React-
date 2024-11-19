@@ -23,21 +23,29 @@ return {
   }
 }
 
+let  nextUnitOfWork = null
 
 function render(element, container){
   // renders to the DOM 
-  console.log(element)
- let domElmnt =  element.type == "TEXT_ELEMENT" ? document.createTextNode(element.type) :  document.createElement(element.type)
-  element.props.children.forEach((childElmnt)=> {
-    render(childElmnt, domElmnt)
-  })
-  container.appendChild(domElmnt)
-  
+  nextUnitOfWork = {
+    dom: container,
+    props: {
+      children: [element]
+    }
+  }
+}
+
+
+function createDom(fiber){
+ let domElmnt =  fiber.type == "TEXT_ELEMENT" ? document.createTextNode(fiber.type) :  document.createElement(fiber.type)
+
   const isProperty = key => key !== "children"
 
   Object.keys(element.props).filter(isProperty).forEach((key)=> {
     domElmnt[key] = element.props[key]
   })
+
+  return  domElmnt
 }
 
 const Atom =  { createElement, render } 
