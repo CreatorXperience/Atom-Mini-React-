@@ -35,6 +35,57 @@ function render(element, container){
   }
 }
 
+function workloop(deadline){
+nextUnitOfWork  = performUnitOfWork(nextUnitOfWork)
+}
+
+
+function performUnitOfWork(fiber){
+  if(!fiber.dom){
+    fiber.dom  =  createDom(fiber)
+  }
+  if(fiber.parent){
+    fiber.parent.appendChild(fiber.dom)
+  }
+
+  let elements = fiber.props.children
+  let prevSibling = null
+  let index = 0 
+  
+  while(index <  elements.length){
+    let element = elements[index]
+    let newFiber = {
+      dom: null,
+      parent: fiber,
+      props: element.props,
+      type: element.type
+    }
+    
+    if(index == 0){
+      fiber.child = newFiber
+    }else{
+      prevSibling.sibling =  newFiber
+    }
+
+    prevSibling = newFiber
+    index++
+  }
+
+if(fiber.child){
+    return fiber.child
+  }
+  let nextFiber = fiber
+  while(nextFiber){
+    if(nextFiber.sibling){
+      return nextFiber.sibling
+    }
+
+    nextFiber = nextFiber.parent
+
+  }
+
+}
+
 
 function createDom(fiber){
  let domElmnt =  fiber.type == "TEXT_ELEMENT" ? document.createTextNode(fiber.type) :  document.createElement(fiber.type)
