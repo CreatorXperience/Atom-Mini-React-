@@ -169,6 +169,7 @@ function updateFunctionComponent(fiber) {
   hookIndex = 0;
   wipFiber.hooks = [];
   const children = [fiber.type(fiber.props)];
+  console.log(fiber)
   reconcileChildren(fiber, children);
 }
 
@@ -261,7 +262,7 @@ function reconcileChildren(wipFiber, elements) {
   }
 }
 
-const Atom = {
+const Atom= {
   createElement,
   render,
   useState

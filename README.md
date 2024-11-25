@@ -472,5 +472,3 @@ A simplified state management system for function components.
 ### Key Points:
 - Stores the state in a fiber-specific hook array.
 - Supports asynchronous updates using a queue of actions.
-
-
