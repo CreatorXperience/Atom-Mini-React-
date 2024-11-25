@@ -1,70 +1,474 @@
-# Getting Started with Create React App
+### REQUIREMENTS
+- REACT 16 
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+## Usage
 
-## Available Scripts
+```/** @jsx Didact.createElement */
+function Counter() {
+  const [state, setState] = Didact.useState(1);
+  return (
+    <h1 onClick={() => setState(c => c + 1)} style="user-select: none">
+      Count: {state}
+    </h1>
+  );
+}
+const element = <Counter />;
+const container = document.getElementById("root");
+Didact.render(element, container);
+```
 
-In the project directory, you can run:
 
-### `npm start`
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+# Understanding the Code: A Custom React-like Library
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+This code demonstrates the implementation of a simplified React-like library, showcasing key concepts like rendering, reconciliation, and hooks (`useState`). Below is a detailed breakdown of each section for mid-level engineers.
 
-### `npm test`
+---
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+## 1. **Core Function: `createElement`**
+This function creates a virtual DOM (VNode) representation of an element.
 
-### `npm run build`
+### Code:
+```javascript
+function createElement(type, props, ...children) {
+  return {
+    type,
+    props: {
+      ...props,
+      children: children.map(child =>
+        typeof child === "object" ? child : createTextElement(child)
+      )
+    }
+  };
+}
+```
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+### Key Points:
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+- type: Represents the element type (e.g., div, h1, or a custom component).
+- props: Contains element attributes and event listeners.
+- children: Nested child elements. Text nodes are converted using createTextElement.
 
-### `npm run eject`
+### 2. Creating Text Nodes: createTextElement
+Converts plain text into a VNode.
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+# Code:
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+```function createTextElement(text) {
+  return {
+    type: "TEXT_ELEMENT",
+    props: {
+      nodeValue: text,
+      children: []
+    }
+  };
+}
+```
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+### Key Points:
+- TEXT_ELEMENT: A special type for text nodes.
+- props.nodeValue: Holds the text content.
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+### 3. Creating DOM Nodes: createDom
+Generates actual DOM nodes from VNodes.
 
-## Learn More
+```function createDom(fiber) {
+  const dom =
+    fiber.type == "TEXT_ELEMENT"
+      ? document.createTextNode("")
+      : document.createElement(fiber.type);
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+  updateDom(dom, {}, fiber.props);
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+  return dom;
+}
+```
 
-### Code Splitting
+###  Key Points:
+- Creates a DOM node based on the fiber.type.
+- Initializes properties and event listeners using updateDom.
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+### 4. Updating the DOM: updateDom
+- Handles changes in DOM properties and event listeners.
 
-### Analyzing the Bundle Size
+### Code:
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+```
+  function updateDom(dom, prevProps, nextProps) {
+  // Remove old or changed event listeners
+  Object.keys(prevProps)
+    .filter(isEvent)
+    .filter(key => !(key in nextProps) || isNew(prevProps, nextProps)(key))
+    .forEach(name => {
+      const eventType = name.toLowerCase().substring(2);
+      dom.removeEventListener(eventType, prevProps[name]);
+    });
 
-### Making a Progressive Web App
+  // Remove old properties
+  Object.keys(prevProps)
+    .filter(isProperty)
+    .filter(isGone(prevProps, nextProps))
+    .forEach(name => {
+      dom[name] = "";
+    });
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
+  // Set new or changed properties
+  Object.keys(nextProps)
+    .filter(isProperty)
+    .filter(isNew(prevProps, nextProps))
+    .forEach(name => {
+      dom[name] = nextProps[name];
+    });
 
-### Advanced Configuration
+  // Add new event listeners
+  Object.keys(nextProps)
+    .filter(isEvent)
+    .filter(isNew(prevProps, nextProps))
+    .forEach(name => {
+      const eventType = name.toLowerCase().substring(2);
+      dom.addEventListener(eventType, nextProps[name]);
+    });
+}
+```
+### Key Points:
+- Event Handling: Differentiates events (onClick) from properties.
+- Property Changes: Removes old properties and sets new ones.
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
 
-### Deployment
+### 5. Reconciliation: reconcileChildren
+Creates and links fibers (units of work) for the new virtual DOM.
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
+### Code:
 
-### `npm run build` fails to minify
+``` function reconcileChildren(wipFiber, elements) {
+  let index = 0;
+  let oldFiber = wipFiber.alternate && wipFiber.alternate.child;
+  let prevSibling = null;
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+  while (index < elements.length || oldFiber != null) {
+    const element = elements[index];
+    let newFiber = null;
+
+    const sameType = oldFiber && element && element.type == oldFiber.type;
+
+    if (sameType) {
+      newFiber = {
+        type: oldFiber.type,
+        props: element.props,
+        dom: oldFiber.dom,
+        parent: wipFiber,
+        alternate: oldFiber,
+        effectTag: "UPDATE"
+      };
+    }
+    if (element && !sameType) {
+      newFiber = {
+        type: element.type,
+        props: element.props,
+        dom: null,
+        parent: wipFiber,
+        alternate: null,
+        effectTag: "PLACEMENT"
+      };
+    }
+    if (oldFiber && !sameType) {
+      oldFiber.effectTag = "DELETION";
+      deletions.push(oldFiber);
+    }
+
+    if (oldFiber) {
+      oldFiber = oldFiber.sibling;
+    }
+
+    if (index === 0) {
+      wipFiber.child = newFiber;
+    } else if (element) {
+      prevSibling.sibling = newFiber;
+    }
+
+    prevSibling = newFiber;
+    index++;
+  }
+}
+```
+### Key Points:
+- Same Type: Updates existing DOM nodes.
+- Different Type: Marks for replacement or deletion.
+- Fibers: Represent individual work units with links to children and siblings
+
+
+
+markdown
+Copy code
+# Understanding the Code: A Custom React-like Library
+
+This code demonstrates the implementation of a simplified React-like library, showcasing key concepts like rendering, reconciliation, and hooks (`useState`). Below is a detailed breakdown of each section for mid-level engineers.
+
+---
+
+## 1. **Core Function: `createElement`**
+This function creates a virtual DOM (VNode) representation of an element.
+
+### Code:
+```javascript
+function createElement(type, props, ...children) {
+  return {
+    type,
+    props: {
+      ...props,
+      children: children.map(child =>
+        typeof child === "object" ? child : createTextElement(child)
+      )
+    }
+  };
+}
+Key Points:
+type: Represents the element type (e.g., div, h1, or a custom component).
+props: Contains element attributes and event listeners.
+children: Nested child elements. Text nodes are converted using createTextElement.
+2. Creating Text Nodes: createTextElement
+Converts plain text into a VNode.
+
+Code:
+javascript
+Copy code
+function createTextElement(text) {
+  return {
+    type: "TEXT_ELEMENT",
+    props: {
+      nodeValue: text,
+      children: []
+    }
+  };
+}
+Key Points:
+TEXT_ELEMENT: A special type for text nodes.
+props.nodeValue: Holds the text content.
+3. Creating DOM Nodes: createDom
+Generates actual DOM nodes from VNodes.
+
+Code:
+javascript
+Copy code
+function createDom(fiber) {
+  const dom =
+    fiber.type == "TEXT_ELEMENT"
+      ? document.createTextNode("")
+      : document.createElement(fiber.type);
+
+  updateDom(dom, {}, fiber.props);
+
+  return dom;
+}
+Key Points:
+Creates a DOM node based on the fiber.type.
+Initializes properties and event listeners using updateDom.
+4. Updating the DOM: updateDom
+Handles changes in DOM properties and event listeners.
+
+Code:
+javascript
+Copy code
+function updateDom(dom, prevProps, nextProps) {
+  // Remove old or changed event listeners
+  Object.keys(prevProps)
+    .filter(isEvent)
+    .filter(key => !(key in nextProps) || isNew(prevProps, nextProps)(key))
+    .forEach(name => {
+      const eventType = name.toLowerCase().substring(2);
+      dom.removeEventListener(eventType, prevProps[name]);
+    });
+
+  // Remove old properties
+  Object.keys(prevProps)
+    .filter(isProperty)
+    .filter(isGone(prevProps, nextProps))
+    .forEach(name => {
+      dom[name] = "";
+    });
+
+  // Set new or changed properties
+  Object.keys(nextProps)
+    .filter(isProperty)
+    .filter(isNew(prevProps, nextProps))
+    .forEach(name => {
+      dom[name] = nextProps[name];
+    });
+
+  // Add new event listeners
+  Object.keys(nextProps)
+    .filter(isEvent)
+    .filter(isNew(prevProps, nextProps))
+    .forEach(name => {
+      const eventType = name.toLowerCase().substring(2);
+      dom.addEventListener(eventType, nextProps[name]);
+    });
+}
+Key Points:
+Event Handling: Differentiates events (onClick) from properties.
+Property Changes: Removes old properties and sets new ones.
+5. Reconciliation: reconcileChildren
+Creates and links fibers (units of work) for the new virtual DOM.
+
+Code:
+javascript
+Copy code
+function reconcileChildren(wipFiber, elements) {
+  let index = 0;
+  let oldFiber = wipFiber.alternate && wipFiber.alternate.child;
+  let prevSibling = null;
+
+  while (index < elements.length || oldFiber != null) {
+    const element = elements[index];
+    let newFiber = null;
+
+    const sameType = oldFiber && element && element.type == oldFiber.type;
+
+    if (sameType) {
+      newFiber = {
+        type: oldFiber.type,
+        props: element.props,
+        dom: oldFiber.dom,
+        parent: wipFiber,
+        alternate: oldFiber,
+        effectTag: "UPDATE"
+      };
+    }
+    if (element && !sameType) {
+      newFiber = {
+        type: element.type,
+        props: element.props,
+        dom: null,
+        parent: wipFiber,
+        alternate: null,
+        effectTag: "PLACEMENT"
+      };
+    }
+    if (oldFiber && !sameType) {
+      oldFiber.effectTag = "DELETION";
+      deletions.push(oldFiber);
+    }
+
+    if (oldFiber) {
+      oldFiber = oldFiber.sibling;
+    }
+
+    if (index === 0) {
+      wipFiber.child = newFiber;
+    } else if (element) {
+      prevSibling.sibling = newFiber;
+    }
+
+    prevSibling = newFiber;
+    index++;
+  }
+}
+``` 
+### Key Points:
+- Same Type: Updates existing DOM nodes.
+- Different Type: Marks for replacement or deletion.
+- Fibers: Represent individual work units with links to children and siblings.
+
+### 6. Rendering: render
+Starts the rendering process.
+
+### Code:
+``` function render(element, container) {
+  wipRoot = {
+    dom: container,
+    props: {
+      children: [element]
+    },
+    alternate: currentRoot
+  };
+  deletions = [];
+  nextUnitOfWork = wipRoot;
+}
+```
+
+### Key Points:
+- Wraps the root element in a fiber.
+- Initializes the rendering work loop.
+
+### 7. Work Loop and Commit Phase
+## Work Loop:
+Processes fibers incrementally to avoid blocking the UI.
+
+```function workLoop(deadline) {
+  let shouldYield = false;
+  while (nextUnitOfWork && !shouldYield) {
+    nextUnitOfWork = performUnitOfWork(nextUnitOfWork);
+    shouldYield = deadline.timeRemaining() < 1;
+  }
+
+  if (!nextUnitOfWork && wipRoot) {
+    commitRoot();
+  }
+
+  requestIdleCallback(workLoop);
+}
+```
+## Commit Phase:
+Applies changes to the actual DOM
+```function commitWork(fiber) {
+  if (!fiber) return;
+
+  let domParentFiber = fiber.parent;
+  while (!domParentFiber.dom) {
+    domParentFiber = domParentFiber.parent;
+  }
+  const domParent = domParentFiber.dom;
+
+  if (fiber.effectTag === "PLACEMENT" && fiber.dom != null) {
+    domParent.appendChild(fiber.dom);
+  } else if (fiber.effectTag === "UPDATE" && fiber.dom != null) {
+    updateDom(fiber.dom, fiber.alternate.props, fiber.props);
+  } else if (fiber.effectTag === "DELETION") {
+    commitDeletion(fiber, domParent);
+  }
+
+  commitWork(fiber.child);
+  commitWork(fiber.sibling);
+}
+```
+
+### 8. Hooks: useState
+A simplified state management system for function components.
+## Code:
+
+```function useState(initial) {
+  const oldHook =
+    wipFiber.alternate &&
+    wipFiber.alternate.hooks &&
+    wipFiber.alternate.hooks[hookIndex];
+  const hook = {
+    state: oldHook ? oldHook.state : initial,
+    queue: []
+  };
+
+  const actions = oldHook ? oldHook.queue : [];
+  actions.forEach(action => {
+    hook.state = action(hook.state);
+  });
+
+  const setState = action => {
+    hook.queue.push(action);
+    wipRoot = {
+      dom: currentRoot.dom,
+      props: currentRoot.props,
+      alternate: currentRoot
+    };
+    nextUnitOfWork = wipRoot;
+    deletions = [];
+  };
+
+  wipFiber.hooks.push(hook);
+  hookIndex++;
+  return [hook.state, setState];
+}
+```
+
+### Key Points:
+- Stores the state in a fiber-specific hook array.
+- Supports asynchronous updates using a queue of actions.
